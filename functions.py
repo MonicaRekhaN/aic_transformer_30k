@@ -1,61 +1,5 @@
-# from globals import *
-import numpy as np
-import pandas as pd 
-from numpy import array
-from PIL import Image
-from pickle import load
 import tensorflow as tf
-from keras_preprocessing.sequence import pad_sequences
-from keras.models import Model
-from keras.layers import Input
-from keras.layers import Dense, BatchNormalization
-from keras.layers import LSTM
-from keras.layers import Embedding
-from keras.layers import Dropout
-from keras.callbacks import ModelCheckpoint
-from keras_preprocessing.image import load_img, img_to_array
-from keras_preprocessing.text import Tokenizer
-from keras.applications.resnet import ResNet50
-
-
-def initialize():
-    num_layer = 4
-    d_model = 512
-    dff = 2048
-    num_heads = 8
-    row_size = 7
-    col_size = 7
-    top_k=5000
-    target_vocab_size = top_k + 1 # top_k = 5000
-    dropout_rate = 0.1
-    global tokenizer,image_features_extract_model,transformer,output,dec_mask
-    global start_token,decoder_input,end_token
-    #Building a Word embedding for top 5000 words in the captions
-    tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=top_k,
-                                                    oov_token="<unk>",
-                                                    filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
-    pkl_tokenizer_file="encoded_tokenizer.pkl"
-    # Load the tokenizer train features to disk
-    with open(pkl_tokenizer_file, "rb") as encoded_pickle:
-        tokenizer = load(encoded_pickle)
-    #Image Model
-    image_model = ResNet50(include_top=False,weights='imagenet',input_shape=(224, 224,3),pooling="avg")
-    new_input = image_model.input
-    hidden_layer = image_model.layers[-2].output
-    print("in init")
-    image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
-    transformer = Transformer(num_layer,d_model,num_heads,dff,row_size,
-                    col_size,target_vocab_size,max_pos_encoding=target_vocab_size,rate=dropout_rate)
-    # transformer()
-    start_token = tokenizer.word_index['<start>']
-    end_token = tokenizer.word_index['<end>']
-    decoder_input = [start_token]
-    output = tf.expand_dims(decoder_input, 0) #token
-    dec_mask = create_masks_decoder(output)
-    test = tf.random.Generator.from_seed(123)
-    test = test.normal(shape=(16,49,2048))
-    transformer(test,output,False,dec_mask)
-    transformer.load_weights('model.h5')
+import numpy as np
 
 def create_masks_decoder(tar):
   look_ahead_mask = create_look_ahead_mask(tf.shape(tar)[1])
@@ -401,13 +345,9 @@ def evaluate(image):
   
   for i in range(100):
       dec_mask = create_masks_decoder(output)
-  
-      # predictions.shape == (batch_size, seq_len, vocab_size)
       predictions = transformer(img_tensor_val,output,False,dec_mask)
-      
       # select the last word from the seq_len dimension
       predictions = predictions[: ,-1:, :]  # (batch_size, 1, vocab_size)
-
       predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
       # return the result if the predicted_id is equal to the end token
       if predicted_id == end_token:
@@ -416,5 +356,4 @@ def evaluate(image):
       # as its input.
       result.append(tokenizer.index_word[int(predicted_id)])
       output = tf.concat([output, predicted_id], axis=-1)
-
   return result
