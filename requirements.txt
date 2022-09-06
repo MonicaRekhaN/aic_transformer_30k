@@ -1,0 +1,11 @@
+fastapi
+tensorflow-cpu
+tensorflow-gpu
+pillow
+python-multipart
+opencv-python-headless
+uvicorn
+gunicorn==19.9.0
+Jinja2
+numpy
+scikit-learn
